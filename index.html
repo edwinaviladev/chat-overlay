@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Mensajes Aleatorios</title>
+
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body {
+            margin: 0;
+            background: transparent;
+            overflow: hidden;
+            font-family: 'Press Start 2P';
+        }
+
+        .floating-message {
+            position: absolute;
+            font-size: 22px;
+            color: white;
+            text-shadow: 2px 2px 4px black;
+            white-space: nowrap;
+            pointer-events: none;
+            transition: opacity 0.5s ease-out;
+        }
+
+        .user {
+            color: #a0d8ff;
+            margin-right: 6px;
+        }
+
+        .emote {
+            height: 28px;
+            vertical-align: middle;
+        }
+    </style>
+</head>
+
+<body>
+
+    <script>
+        const CHANNEL = "wewinvt";
+        const MESSAGE_LIFETIME = 6000; // ⏱️ 4 segundos
+
+        const socket = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
+
+        socket.onopen = () => {
+            socket.send("CAP REQ :twitch.tv/tags");
+            socket.send("PASS SCHMOOPIIE");
+            socket.send("NICK justinfan12345");
+            socket.send(`JOIN #${CHANNEL}`);
+        };
+
+        socket.onmessage = (event) => {
+            if (!event.data.includes("PRIVMSG")) return;
+            const msg = parseIRCMessage(event.data);
+            if (msg) spawnRandomMessage(msg.username, msg.message, msg.emotes);
+        };
+
+        /* ------------ Parseo IRC ------------ */
+        function parseIRCMessage(raw) {
+            const username = raw.match(/:(\w+)!/)?.[1];
+            const tags = parseTags(raw);
+            const message = raw.split("PRIVMSG")[1]?.split(":").slice(1).join(":").trim();
+            if (!username || !message) return null;
+
+            return { username, message, emotes: tags.emotes || null };
+        }
+
+        function parseTags(raw) {
+            if (!raw.startsWith("@")) return {};
+            return Object.fromEntries(
+                raw.split(" ")[0].slice(1).split(";").map(t => t.split("="))
+            );
+        }
+
+        /* ------------ Emotes ------------ */
+        function replaceTwitchEmotes(message, emotes) {
+            if (!emotes) return message;
+
+            const positions = [];
+
+            emotes.split("/").forEach((item) => {
+                const [id, ranges] = item.split(":");
+                ranges.split(",").forEach((r) => {
+                    const [start, end] = r.split("-").map(Number);
+                    positions.push({ id, start, end });
+                });
+            });
+
+            positions.sort((a, b) => b.start - a.start);
+
+            let result = message;
+
+            positions.forEach(({ id, start, end }) => {
+                const img = `<img class="emote" src="https://static-cdn.jtvnw.net/emoticons/v2/${id}/default/dark/2.0">`;
+                result = result.slice(0, start) + img + result.slice(end + 1);
+            });
+
+            return result;
+        }
+
+        /* ------------ Mensaje aleatorio ------------ */
+        function spawnRandomMessage(username, message, emotes) {
+            const element = document.createElement("div");
+            element.className = "floating-message";
+
+            const processed = replaceTwitchEmotes(message, emotes);
+            const speed = 2;
+
+            element.innerHTML = `
+                <span class="user">${username}:</span>
+                ${processed}
+            `;
+
+            document.body.appendChild(element);
+
+            // Posición aleatoria
+            let x = window.innerWidth - 300;
+            const y = Math.random() * (window.innerHeight - 50);
+
+            element.style.left = `${x}px`;
+            element.style.top = `${y}px`;
+
+            function animate() {
+                x -= speed;
+                element.style.left = x + "px";
+                requestAnimationFrame(animate);
+            }
+
+            animate()
+
+            setTimeout(() => {
+                element.style.opacity = 0;
+                setTimeout(() => element.remove(), 500);
+            }, MESSAGE_LIFETIME);
+        }
+    </script>
+
+</body>
+</html>
