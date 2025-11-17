@@ -41,7 +41,7 @@
 
     <script>
         const CHANNEL = "wewinvt";
-        const MESSAGE_LIFETIME = 6000; // ⏱️ 4 segundos
+        const MESSAGE_LIFETIME = 8000; // ⏱️ 4 segundos
 
         const socket = new WebSocket("wss://irc-ws.chat.twitch.tv:443");
 
@@ -107,7 +107,7 @@
             element.className = "floating-message";
 
             const processed = replaceTwitchEmotes(message, emotes);
-            const speed = 2;
+            const speed = 3;
 
             element.innerHTML = `
                 <span class="user">${username}:</span>
